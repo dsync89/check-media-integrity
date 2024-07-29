@@ -72,7 +72,7 @@ MEDIA_EXTENSIONS = []
 
 CONFIG = None
 
-CSV_HEADER = [("file_name", "error_message", "file_size[bytes]")]
+CSV_HEADER = [("check_result", "file_name", "error_message", "file_size[bytes]")]
 
 import textwrap as _textwrap
 
@@ -97,7 +97,7 @@ def arg_parser():
     - supported image formats/extensions: """ + str(PIL_EXTENSIONS) + """|n
     - supported image EXTRA formats/extensions:""" + str(PIL_EXTRA_EXTENSIONS + MAGICK_EXTENSIONS) + """|n
     - supported audio/video extensions: """ + str(VIDEO_EXTENSIONS + AUDIO_EXTENSIONS) + """|n
-    - output CSV file, has the header raw, and one line for each bad file, providing: file name, error message, 
+    - output CSV file, has the header raw, and one line for each bad file, providing: check status, file name, error message, 
     file size"""
 
     parser = argparse.ArgumentParser(description='Checks integrity of Media files (Images, Video, Audio).',
@@ -141,6 +141,9 @@ def arg_parser():
                         help='number of seconds to wait for new performed checks in queue, default is 120 sec, you need'
                              ' to raise the default when working with video files (usually) bigger than few GBytes',
                         dest='timeout', default=120)
+    parser.add_argument('-b', '--log-bad-files-only', action='store_true',
+                        help='log only bad files',
+                        dest='log_bad_files_only')
 
     parse_out = parser.parse_args()
     parse_out.enable_csv = parse_out.csv_filename is not None
@@ -223,15 +226,14 @@ def check_file(filename, error_detect='default', strict_level=0, zero_detect=0, 
     #     return False, (filename, str(e), file_size)
     except Exception as e:
         # IMHO "Exception" is NOT too broad, io/decode/any problem should be (with details) an image problem
-        return False, (filename, str(e), file_size)
+        return False, ("X", filename, str(e), file_size)
 
-    return True, (filename, None, file_size)
+    return True, ("O", filename, None, file_size)
 
 
-def log_check_outcome(check_outcome_detail):
-    print("Bad file:", check_outcome_detail[0], ", error detail:", check_outcome_detail[
+def log_check_outcome(check_outcome_detail, is_ok=False):
+    print(f"File [{check_outcome_detail[0]}], error detail:", check_outcome_detail[
         1], ", size[bytes]:", check_outcome_detail[2])
-
 
 def worker(in_queue, out_queue, CONFIG):
     try:
@@ -264,6 +266,11 @@ def main():
     print("==============================================")    
     timed_logger.start()    
 
+    if CONFIG.log_bad_files_only:
+        print("Will only log BAD files only due to -b argument")
+    else:
+        print("Will log GOOD and BAD files")
+
     print("----------------------------------------------")
     print("Files integrity check for:", check_path)
     print("----------------------------------------------")
@@ -272,9 +279,11 @@ def main():
         is_success = check_file(check_path, CONFIG.error_detect)
         if not is_success[0]:
             check_outcome_detail = is_success[1]
-            log_check_outcome(check_outcome_detail)
+            log_check_outcome(check_outcome_detail, False)
             sys.exit(1)
         else:
+            if not CONFIG.log_bad_files_only:
+                log_check_outcome(check_outcome_detail, True)
             print("File", check_path, "is OK")
             sys.exit(0)
 
@@ -316,15 +325,19 @@ def main():
             count += 1
 
             is_success = out_queue.get(block=True, timeout=CONFIG.timeout)
-            file_size = is_success[1][2]
+            file_size = is_success[1][3]
+            check_outcome_detail = is_success[1]
+
             if file_size != 'NA':
                 total_file_size += file_size
+                if not CONFIG.log_bad_files_only:
+                    bad_files_info.append(check_outcome_detail)
+                    log_check_outcome(check_outcome_detail, True)
 
             if not is_success[0]:
-                check_outcome_detail = is_success[1]
                 count_bad += 1
                 bad_files_info.append(check_outcome_detail)
-                log_check_outcome(check_outcome_detail)
+                log_check_outcome(check_outcome_detail, False)
                 # print "RATIO:", count_bad, "/", count
 
             # visualization logs and stats
