@@ -238,6 +238,9 @@ def main():
 
     # initialize timed logger that print summary at the end of run
     timed_logger = TimedLogger(UPDATE_SEC_INTERVAL, UPDATE_MB_INTERVAL)
+    print("==============================================")
+    print(f"TASK STARTED ON {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    print("==============================================")    
     timed_logger.start()    
 
     print("----------------------------------------------")
@@ -307,8 +310,13 @@ def main():
             timed_logger.print_log(count, count_bad, total_file_size)
     except Empty as e:
         print("Waiting other results for too much time, perhaps you have to raise the timeout", e.message)
-    print("\n**Task completed**\n")
+
+    print("\n")
+    print("==============================================")
+    print(f"TASK COMPLETED ON {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    print("==============================================")
     timed_logger.print_log(count, count_bad, total_file_size, force=True)
+    print("==============================================")
 
     if count_bad > 0 and CONFIG.enable_csv:
         print("\nSave details for bad files in CSV format, file path:", CONFIG.csv_filename)
