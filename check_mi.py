@@ -14,17 +14,18 @@ __status__ = "Beta"
 
 import sys
 import os
-import time
-import PIL
-from PIL import Image as ImageP
-from wand.image import Image as ImageW
-import PyPDF2
-import csv
-import ffmpeg
 import argparse
-from subprocess import Popen, PIPE
-import subprocess
-import json
+import time
+
+# import checkers for different type of files
+from zero_checker import ZeroChecker
+from ffmpeg_checker import FFmpegChecker
+from pdf_checker import PDFChecker
+from magick_checker import MagickChecker
+from pil_checker import PILChecker
+
+from csv_writer import CSVWriter
+from timed_logger import TimedLogger
 
 LICENSE = "Copyright (C) 2018  Fabiano Tarlao.\nThis program comes with ABSOLUTELY NO WARRANTY.\n" \
           "This is free software, and you are welcome to redistribute it under GPL3 license conditions"
@@ -51,8 +52,9 @@ MEDIA_EXTENSIONS = []
 
 CONFIG = None
 
-import textwrap as _textwrap
+CSV_HEADER = [("file_name", "error_message", "file_size[bytes]")]
 
+import textwrap as _textwrap
 
 class MultilineFormatter(argparse.HelpFormatter):
     def _fill_text(self, text, width, indent):
@@ -145,79 +147,6 @@ def setup(configuration):
     if enable_media:
         MEDIA_EXTENSIONS += VIDEO_EXTENSIONS + AUDIO_EXTENSIONS
 
-
-def pil_check(filename):
-    img = ImageP.open(filename)  # open the image file
-    img.verify()  # verify that it is a good image, without decoding it.. quite fast
-    img.close()
-
-    # Image manipulation is mandatory to detect few defects
-    img = ImageP.open(filename)  # open the image file
-    # alternative (removed) version, decode/recode:
-    # f = cStringIO.StringIO()
-    # f = io.BytesIO()
-    # img.save(f, "BMP")
-    # f.close()
-    img.transpose(PIL.Image.FLIP_LEFT_RIGHT)
-    img.close()
-
-
-def magick_check(filename, flip=True):
-    # very useful for xcf, psd and aslo supports pdf
-    img = ImageW(filename=filename)
-    if flip:
-        temp = img.flip
-    else:
-        temp = img.make_blob(format='bmp')
-    img.close()
-    return temp
-
-
-def magick_identify_check(filename):
-    proc = Popen(['identify', '-regard-warnings', filename], stdout=PIPE,
-                 stderr=PIPE)  # '-verbose',
-    out, err = proc.communicate()
-    exitcode = proc.returncode
-    if exitcode != 0:
-        raise Exception('Identify error:' + str(exitcode))
-    return out
-
-
-def pypdf_check(filename):
-    # PDF format
-    # Check with specific library
-    pdfobj = PyPDF2.PdfFileReader(open(filename, "rb"))
-    pdfobj.getDocumentInfo()
-    # Check with imagemagick
-    magick_check(filename, False)
-
-
-def check_zeros(filename, length_seq_threshold=None):
-    f = open(filename, "rb")
-    thefilearray = f.read()
-    f.close()
-    num = 1
-    maxnum = num
-    prev = None
-    maxprev = None
-    for i in thefilearray:
-        if prev == i:
-            num += 1
-        else:
-            if num > maxnum:
-                maxnum = num
-                maxprev = prev
-            num = 1
-            prev = i
-    if num > maxnum:
-        maxnum = num
-    if length_seq_threshold is None:
-        return maxnum
-    else:
-        if maxnum >= length_seq_threshold:
-            raise Exception("Equal value sequence, value:", maxprev, "len:", maxnum)
-
-
 def check_size(filename, zero_exception=True):
     statfile = os.stat(filename)
     filesize = statfile.st_size
@@ -225,95 +154,13 @@ def check_size(filename, zero_exception=True):
         raise SyntaxError("Zero size file")
     return filesize
 
-
 def get_extension(filename):
     file_lowercase = filename.lower()
     return os.path.splitext(file_lowercase)[1][1:]
 
-
 def is_target_file(filename):
     file_ext = get_extension(filename)
     return file_ext in MEDIA_EXTENSIONS
-
-def ffmpeg_check(filename, error_detect='default', threads=0):
-    ffmpeg_command = ['ffmpeg', '-v', 'error', '-i', filename, '-f', 'null', '-']
-
-    if error_detect != 'default':
-       if error_detect == 'strict':
-           custom = '+crccheck+bitstream+buffer+explode'
-       else:
-           custom = error_detect
-       ffmpeg_command.insert(3, '-err_detect')
-       ffmpeg_command.insert(4, custom)
-    
-    if threads > 0: 
-        ffmpeg_command.append('-threads')
-        ffmpeg_command.append(str(threads))
-    
-    try:
-        result = subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        lines = result.stdout.splitlines()
-        json_output = json.dumps({i: line for i, line in enumerate(lines)}, separators=(',', ':'))
-        if 'error' in result.stdout.lower():
-            raise subprocess.CalledProcessError(result.returncode, ffmpeg_command, output=json_output, stderr=result.stderr)
-    except subprocess.CalledProcessError as e:
-        raise Exception(e.output)
-
-
-def ffmpeg_check_ori(filename, error_detect='default', threads=0):
-    if error_detect == 'default':
-        stream = ffmpeg.input(filename)
-    else:
-        if error_detect == 'strict':
-            custom = '+crccheck+bitstream+buffer+explode'
-        else:
-            custom = error_detect
-        stream = ffmpeg.input(filename, **{'err_detect': custom, 'threads': threads})
-
-    stream = stream.output('pipe:', format="null")
-    stream.run(capture_stdout=True, capture_stderr=True)
-
-
-def save_csv(filename, data):
-    with open(filename, mode='w') as out_file:
-        out_writer = csv.writer(out_file, delimiter='\t', quotechar='', quoting=csv.QUOTE_NONE, escapechar='\\')
-        for entry in data:
-            out_writer.writerow(list(entry))
-
-
-class TimedLogger:
-    def __init__(self):
-        self.previous_time = 0
-        self.previous_size = 0
-        self.start_time = 0
-
-    def start(self):
-        self.start_time = self.previous_time = time.time()
-        return self
-
-    def print_log(self, num_files, num_bad_files, total_file_size, wait_min_processed=UPDATE_MB_INTERVAL, force=False):
-        if not force and (total_file_size - self.previous_size) < wait_min_processed * (1024 * 1024):
-            return
-        cur_time = time.time()
-        from_previous_delta = cur_time - self.previous_time
-        if from_previous_delta > UPDATE_SEC_INTERVAL or force:
-            self.previous_time = cur_time
-            self.previous_size = total_file_size
-
-            from_start_delta = cur_time - self.start_time
-            speed_MB = total_file_size / (1024 * 1024 * from_start_delta)
-            speed_IS = num_files / from_start_delta
-            processed_size_MB = float(total_file_size) / (1024 * 1024)
-
-            print("Number of bad/processed files:", num_bad_files, "/", num_files, ", size of processed files:", \
-                "{0:0.1f}".format(processed_size_MB), "MB")
-            print("Processing speed:", "{0:0.1f}".format(speed_MB), "MB/s, or", "{0:0.1f}".format(
-                speed_IS), "files/s")
-
-
-def is_pil_simd():
-    return 'post' in PIL.__version__
-
 
 def check_file(filename, error_detect='default', strict_level=0, zero_detect=0, ffmpeg_threads=0):
     if sys.version_info[0] < 3:
@@ -327,28 +174,28 @@ def check_file(filename, error_detect='default', strict_level=0, zero_detect=0, 
     try:
         file_size = check_size(filename)
         if zero_detect > 0:
-            check_zeros(filename, CONFIG.zero_detect)
+            ZeroChecker.check(filename, CONFIG.zero_detect)
 
         if file_ext in PIL_EXTENSIONS:
             if strict_level in [1, 2]:
-                pil_check(filename)
+                PILChecker.check(filename)
             if strict_level in [0, 2]:
-                magick_identify_check(filename)
+                MagickChecker.identify_check(filename)
 
         if file_ext in PDF_EXTENSIONS:
             if strict_level in [1, 2]:
-                pypdf_check(filename)
+                PDFChecker.check(filename)
             if strict_level in [0, 2]:
-                magick_identify_check(filename)
+                MagickChecker.identify_check(filename)
 
         if file_ext in MAGICK_EXTENSIONS:
             if strict_level in [1, 2]:
-                magick_check(filename)
+                MagickChecker.check(filename)
             if strict_level in [0, 2]:
-                magick_identify_check(filename)
+                MagickChecker.identify_check(filename)
 
         if file_ext in VIDEO_EXTENSIONS:
-            ffmpeg_check(filename, error_detect=error_detect, threads=ffmpeg_threads)
+            FFmpegChecker.check(filename, error_detect=error_detect, threads=ffmpeg_threads)
 
     # except ffmpeg.Error as e:
     #     # print e.stderr
@@ -381,19 +228,21 @@ def worker(in_queue, out_queue, CONFIG):
 
 def main():
     global CONFIG
-    if not is_pil_simd():
-        print("********WARNING*******************************************************")
-        print("You are using Python Pillow PIL module and not the Pillow-SIMD module.")
-        print("Pillow-SIMD is a 4x faster drop-in replacement of the base PIL module.")
-        print("Uninstalling Pillow PIL and installing Pillow-SIMD is a good idea.")
-        print("**********************************************************************")
-
     CONFIG = arg_parser()
     setup(CONFIG)
     check_path = CONFIG.checkpath
 
-    print("Files integrity check for:", check_path)
+    # initialize csv writer
+    csv_writer = CSVWriter(filename=CONFIG.csv_filename)
+    csv_writer.write(CSV_HEADER) # write header
 
+    # initialize timed logger that print summary at the end of run
+    timed_logger = TimedLogger(UPDATE_SEC_INTERVAL, UPDATE_MB_INTERVAL)
+    timed_logger.start()    
+
+    print("----------------------------------------------")
+    print("Files integrity check for:", check_path)
+    print("----------------------------------------------")
     if os.path.isfile(check_path):
         # manage single file check
         is_success = check_file(check_path, CONFIG.error_detect)
@@ -411,15 +260,13 @@ def main():
     count = 0
     count_bad = 0
     total_file_size = 0
-    bad_files_info = [("file_name", "error_message", "file_size[bytes]")]
-    timed_logger = TimedLogger().start()
+    bad_files_info = [] # [("file_name", "error_message", "file_size[bytes]")]
 
     task_queue = Queue()
     out_queue = Queue()
     pre_count = 0
 
-    for root, sub_dirs, files in os.walk(check_path):
-        
+    for root, sub_dirs, files in os.walk(check_path):        
         media_files = []
         for filename in files:
             if is_target_file(filename):
@@ -465,7 +312,7 @@ def main():
 
     if count_bad > 0 and CONFIG.enable_csv:
         print("\nSave details for bad files in CSV format, file path:", CONFIG.csv_filename)
-        save_csv(CONFIG.csv_filename, bad_files_info)
+        csv_writer.write(bad_files_info)
 
     if count_bad == 0:
         print("The files are OK :-)")
