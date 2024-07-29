@@ -24,6 +24,7 @@ import ffmpeg
 import argparse
 from subprocess import Popen, PIPE
 import subprocess
+import json
 
 LICENSE = "Copyright (C) 2018  Fabiano Tarlao.\nThis program comes with ABSOLUTELY NO WARRANTY.\n" \
           "This is free software, and you are welcome to redistribute it under GPL3 license conditions"
@@ -251,10 +252,10 @@ def ffmpeg_check(filename, error_detect='default', threads=0):
     
     try:
         result = subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        lines = result.stdout.splitlines()
+        json_output = json.dumps({i: line for i, line in enumerate(lines)}, separators=(',', ':'))
         if 'error' in result.stdout.lower():
-            print(f"error: {result.stdout}")
-            result.stdout = result.stdout.replace('\n', ' ')
-            raise subprocess.CalledProcessError(result.returncode, ffmpeg_command, output=result.stdout, stderr=result.stderr)
+            raise subprocess.CalledProcessError(result.returncode, ffmpeg_command, output=json_output, stderr=result.stderr)
     except subprocess.CalledProcessError as e:
         raise Exception(e.output)
 
