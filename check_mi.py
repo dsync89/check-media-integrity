@@ -23,8 +23,7 @@ __version__ = "0.9.5"
 __maintainer__ = "D.Sync"
 __status__ = "Beta"
 
-
-import warnings
+import logging
 from queue import Empty
 from multiprocessing import Pool, Queue, Process
 
@@ -75,6 +74,17 @@ CONFIG = None
 CSV_HEADER = [("check_result", "file_name", "error_message", "file_size[bytes]")]
 
 import textwrap as _textwrap
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class MultilineFormatter(argparse.HelpFormatter):
     def _fill_text(self, text, width, indent):
@@ -232,7 +242,7 @@ def check_file(filename, error_detect='default', strict_level=0, zero_detect=0, 
 
 
 def log_check_outcome(check_outcome_detail, is_ok, curr_file_num, total_file_num):
-    print(f"File {curr_file_num}/{total_file_num}: [{check_outcome_detail[0]}], file_path: {check_outcome_detail[1]}, detail: {check_outcome_detail[2]}, size[bytes]: {check_outcome_detail[3]}")
+    logger.info(f"File {curr_file_num}/{total_file_num}: [{check_outcome_detail[0]}], file_path: {check_outcome_detail[1]}, detail: {check_outcome_detail[2]}, size[bytes]: {check_outcome_detail[3]}")
 
 def worker(in_queue, out_queue, CONFIG):
     try:
@@ -241,10 +251,10 @@ def worker(in_queue, out_queue, CONFIG):
             is_success = check_file(full_filename, CONFIG.error_detect, strict_level=CONFIG.strict_level, zero_detect=CONFIG.zero_detect)
             out_queue.put(is_success)
     except Empty:
-        print("Closing parallel worker, the worker has no more tasks to perform")
+        logger.debug("Closing parallel worker, the worker has no more tasks to perform")
         return
     except Exception as e:
-        print("Parallel worker got unexpected error", str(e))
+        logger.error("Parallel worker got unexpected error", str(e))
         sys.exit(1)
 
 
@@ -255,20 +265,20 @@ def main():
     check_path = CONFIG.checkpath
 
     # initialize timed logger that print summary at the end of run
-    timed_logger = TimedLogger(UPDATE_SEC_INTERVAL, UPDATE_MB_INTERVAL)
-    print("==============================================")
-    print(f"TASK STARTED ON {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    print("==============================================")    
+    timed_logger = TimedLogger(UPDATE_SEC_INTERVAL, UPDATE_MB_INTERVAL, logger)
+    logger.info("==============================================")
+    logger.info(f"TASK STARTED ON {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    logger.info("==============================================")    
     timed_logger.start()    
 
     if CONFIG.log_bad_files_only:
-        print("Will only log BAD files only due to -b argument")
+        logger.info("Will only log BAD files only due to -b argument")
     else:
-        print("Will log GOOD and BAD files")
+        logger.info("Will log GOOD and BAD files")
 
-    print("----------------------------------------------")
-    print("Files integrity check for:", check_path)
-    print("----------------------------------------------")
+    logger.info("----------------------------------------------")
+    logger.info(f"Files integrity check for: {check_path}")
+    logger.info("----------------------------------------------")
     if os.path.isfile(check_path):
         # manage single file check
         check_result = check_file(check_path, CONFIG.error_detect)
@@ -279,7 +289,7 @@ def main():
         else:
             if not CONFIG.log_bad_files_only:
                 log_check_outcome(check_outcome_detail, True, 1, 1)
-            print("File", check_path, "is OK")
+            logger.info("File", check_path, "is OK")
             sys.exit(0)
 
     # initialize csv writer only if it is not a single file
@@ -313,7 +323,7 @@ def main():
         if not CONFIG.is_recurse:
             break  # we only check the root folder
 
-    print(f"Found {pre_count} files in {check_path}")
+    logger.info(f"Found {pre_count} files in {check_path}")
 
     for i in range(CONFIG.threads):
         p = Process(target=worker, args=(task_queue, out_queue, CONFIG))
@@ -347,30 +357,25 @@ def main():
             # visualization logs and stats
             timed_logger.print_log(count, count_bad, total_file_size)
     except Empty as e:
-        print("Waiting other results for too much time, perhaps you have to raise the timeout", e.message)
+        logger.error("Waiting other results for too much time, perhaps you have to raise the timeout", e.message)
 
-    print("\n")
-    print("==============================================")
-    print(f"TASK COMPLETED ON {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    print("==============================================")
+    logger.info("==============================================")
+    logger.info(f"TASK COMPLETED ON {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    logger.info("==============================================")
     timed_logger.print_log(count, count_bad, total_file_size, force=True)
-    print("==============================================")
+    logger.info("==============================================")
 
     if count_bad > 0 and CONFIG.enable_csv:
-        print("\nSaving CSV format, file path:", CONFIG.csv_filename)
+        logger.info(f"Saving CSV format, file path: {CONFIG.csv_filename}")
         csv_writer.write(result_info)
 
-    print()
-    print("----------------------------------------------")
-    print("File Statistics")
-    print("----------------------------------------------")    
-    print(f"Total Files: \t{count}")
-
-    # if count_bad == 0:
-    print(f"Good Files: \t{count - count_bad}")
-    # else:
-    print(f"Bad Files: \t{count_bad}")
-
+    logger.info("----------------------------------------------")
+    logger.info("File Statistics")
+    logger.info("----------------------------------------------")    
+    logger.info(f"Total Files: {count:>5}")
+    logger.info(f"Good Files:  {count - count_bad:>5}")
+    logger.info(f"Bad Files:   {count_bad:>5}")
+    logger.info("----------------------------------------------")
 
 if __name__ == "__main__":
     main()

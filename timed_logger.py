@@ -1,12 +1,13 @@
 import time
 
 class TimedLogger:
-    def __init__(self, UPDATE_MB_INTERVAL, UPDATE_SEC_INTERVAL):
+    def __init__(self, UPDATE_MB_INTERVAL, UPDATE_SEC_INTERVAL, logger):
         self.previous_time = 0
         self.previous_size = 0
         self.start_time = 0
         self.UPDATE_MB_INTERVAL = UPDATE_MB_INTERVAL
         self.UPDATE_SEC_INTERVAL = UPDATE_SEC_INTERVAL
+        self.logger=logger
 
     def start(self):
         self.start_time = self.previous_time = time.time()
@@ -29,8 +30,5 @@ class TimedLogger:
             speed_IS = num_files / from_start_delta
             processed_size_MB = float(total_file_size) / (1024 * 1024)
 
-            print("Number of bad/processed files:", num_bad_files, "/", num_files, ", size of processed files:", \
-                "{0:0.1f}".format(processed_size_MB), "MB")
-            print("Processing speed:", "{0:0.1f}".format(speed_MB), "MB/s, or", "{0:0.1f}".format(
-                speed_IS), "files/s")
-
+            self.logger.info(f"Number of bad/processed files: {num_bad_files} / {num_files}, size of processed files: {processed_size_MB:.1f} MB")
+            self.logger.info(f"Processing speed: {speed_MB:.1f} MB/s, or {speed_IS:.1f} files/s")
