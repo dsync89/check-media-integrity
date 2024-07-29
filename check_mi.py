@@ -15,6 +15,15 @@
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+__author__ = "Fabiano Tarlao, D.Sync"
+__copyright__ = "Copyright 2018, Fabiano Tarlao, Copyright 2024, D.Sync"
+__credits__ = ["Fabiano Tarlao"]
+__license__ = "GPL3"
+__version__ = "0.9.5"
+__maintainer__ = "D.Sync"
+__status__ = "Beta"
+
+
 import warnings
 from queue import Empty
 from multiprocessing import Pool, Queue, Process
