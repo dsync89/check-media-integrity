@@ -2,6 +2,8 @@
 
 This is MODIFIED version of the original repo by `ftarlao/check-media-integrity`, focusing to capture ALL possible error when checking video file.
 
+Also featured in my website: https://dsync89.com
+
 ## Mods
 - More reliable video checking using `ffmpeg -v error` instead of the default `strict` profile way. The error is decided by searching for the `error` word in the stderr (redirected to stdout). Using exit code or strict profile DOES NOT CAPTURE all the error case. 
 - Write GOOD and BAD files to CSV by default, provide `-b` arg to show bad files only
