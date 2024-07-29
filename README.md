@@ -13,6 +13,7 @@ Also featured in my website: https://dsync89.com
 - Many more formatting enhancement
 
 ### CSV Output
+- Use tab delimiter `\t` instead of `,` because some error might contains `,`, such as the error outputted by `ffmpeg`.
 - CSV file is always written if folder is provided
 - Added a `check_status` to the first column. `O` means file OK, `X` means bad file.
 - Error message is formatted using `JSON` for JSON prettify of the error message is too long, e.g. when error is checked in FFMPEG.
@@ -127,6 +128,68 @@ CSV Output
 ```
 check_result	file_name	error_message	file_size[bytes]
 X	/media/videos/Survivor/Season 28/test/Survivor.S28E05.We.Found.Our.Zombies.1080p.AMZN.WEB-DL.AAC2.0.H.264-AJP69.mkv	{"0":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 158135 (0x269b7) invalid as first byte of an EBML number","1":"[h264 @ 0x5563415b13c0] error while decoding MB 112 56, bytestream -7","2":"[h264 @ 0x5563415ce040] co located POCs unavailable","3":"[h264 @ 0x5563415eacc0] co located POCs unavailable","4":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 800196606 (0x2fb207fe) invalid as first byte of an EBML number","5":"[h264 @ 0x55634140f080] error while decoding MB 12 66, bytestream -8","6":"[h264 @ 0x55634140abc0] co located POCs unavailable","7":"[h264 @ 0x5563414abc80] mmco: unref short failure","8":"[h264 @ 0x55634146c780] co located POCs unavailable","9":"[aac @ 0x5563413e26c0] decode_band_types: Input buffer exhausted before END element found","10":"Error while decoding stream #0:1: Invalid data found when processing input","11":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","12":"Error while decoding stream #0:1: Invalid data found when processing input","13":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","14":"Error while decoding stream #0:1: Invalid data found when processing input","15":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","16":"Error while decoding stream #0:1: Invalid data found when processing input","17":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 1600226258 (0x5f6183d2) invalid as first byte of an EBML number"}	2400354304
+```
+
+You can copy and paste the third column to JSON validator site like JSONLint and it will format it nicely, e.g.
+```
+{
+    "0": "[matroska,webm @ 0x5563413d9e40] 0x00 at pos 158135 (0x269b7) invalid as first byte of an EBML number",
+    "1": "[h264 @ 0x5563415b13c0] error while decoding MB 112 56, bytestream -7",
+    "2": "[h264 @ 0x5563415ce040] co located POCs unavailable",
+    "3": "[h264 @ 0x5563415eacc0] co located POCs unavailable",
+    "4": "[matroska,webm @ 0x5563413d9e40] 0x00 at pos 800196606 (0x2fb207fe) invalid as first byte of an EBML number",
+    "5": "[h264 @ 0x55634140f080] error while decoding MB 12 66, bytestream -8",
+    "6": "[h264 @ 0x55634140abc0] co located POCs unavailable",
+    "7": "[h264 @ 0x5563414abc80] mmco: unref short failure",
+    "8": "[h264 @ 0x55634146c780] co located POCs unavailable",
+    "9": "[aac @ 0x5563413e26c0] decode_band_types: Input buffer exhausted before END element found",
+    "10": "Error while decoding stream #0:1: Invalid data found when processing input",
+    "11": "[aac @ 0x5563413e26c0] channel element 0.0 is not allocated",
+    "12": "Error while decoding stream #0:1: Invalid data found when processing input",
+    "13": "[aac @ 0x5563413e26c0] channel element 0.0 is not allocated",
+    "14": "Error while decoding stream #0:1: Invalid data found when processing input",
+    "15": "[aac @ 0x5563413e26c0] channel element 0.0 is not allocated",
+    "16": "Error while decoding stream #0:1: Invalid data found when processing input",
+    "17": "[matroska,webm @ 0x5563413d9e40] 0x00 at pos 1600226258 (0x5f6183d2) invalid as first byte of an EBML number"
+}
+```
+
+## Output example to show bad files only
+
+```
+$ python3 check_mi.py -m -r test_folder/files -b
+2024-07-29 19:02:02 [INFO] ==============================================
+2024-07-29 19:02:02 [INFO] TASK STARTED ON 2024-07-29 19:02:02 UTC
+2024-07-29 19:02:02 [INFO] ==============================================
+2024-07-29 19:02:02 [INFO] Will only log BAD files only due to -b argument
+2024-07-29 19:02:02 [INFO] ----------------------------------------------
+2024-07-29 19:02:02 [INFO] Files integrity check for: test_folder/files
+2024-07-29 19:02:02 [INFO] ----------------------------------------------
+2024-07-29 19:02:02 [INFO] Found 6 files in test_folder/files
+2024-07-29 19:02:02 [INFO] File 1/6: [X], file_path: test_folder/files/050807-124755t.jpg, detail: image file is truncated (0 bytes not processed), size[bytes]: 39000
+2024-07-29 19:02:03 [INFO] File 5/6: [X], file_path: test_folder/files/deep/050807-124755b.jpg, detail: broken data stream when reading image file, size[bytes]: 41576
+2024-07-29 19:02:03 [INFO] ==============================================
+2024-07-29 19:02:03 [INFO] TASK COMPLETED ON 2024-07-29 19:02:03 UTC
+2024-07-29 19:02:03 [INFO] ==============================================
+2024-07-29 19:02:03 [INFO] Number of bad/processed files: 2 / 6, size of processed files: 9.7 MB
+2024-07-29 19:02:03 [INFO] Processing speed: 12.8 MB/s, or 8.0 files/s
+2024-07-29 19:02:03 [INFO] ==============================================
+2024-07-29 19:02:03 [INFO] Saving CSV format, file path: 2024-07-29_19-02-02.csv
+2024-07-29 19:02:03 [INFO] ----------------------------------------------
+2024-07-29 19:02:03 [INFO] File Statistics
+2024-07-29 19:02:03 [INFO] ----------------------------------------------
+2024-07-29 19:02:03 [INFO] Total Files:     6
+2024-07-29 19:02:03 [INFO] Good Files:      4
+2024-07-29 19:02:03 [INFO] Bad Files:       2
+2024-07-29 19:02:03 [INFO] ----------------------------------------------
+```
+
+CSV output
+
+```
+check_result	file_name	error_message	file_size[bytes]
+X	test_folder/files/050807-124755t.jpg	image file is truncated (0 bytes not processed)	39000
+X	test_folder/files/deep/050807-124755b.jpg	broken data stream when reading image file	41576
 ```
 
 ## Motivation
