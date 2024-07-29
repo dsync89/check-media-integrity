@@ -231,9 +231,8 @@ def check_file(filename, error_detect='default', strict_level=0, zero_detect=0, 
     return True, ("O", filename, None, file_size)
 
 
-def log_check_outcome(check_outcome_detail, is_ok=False):
-    print(f"File [{check_outcome_detail[0]}], error detail:", check_outcome_detail[
-        1], ", size[bytes]:", check_outcome_detail[2])
+def log_check_outcome(check_outcome_detail, is_ok, curr_file_num, total_file_num):
+    print(f"File {curr_file_num}/{total_file_num}: [{check_outcome_detail[0]}], file_path: {check_outcome_detail[1]}, detail: {check_outcome_detail[2]}, size[bytes]: {check_outcome_detail[3]}")
 
 def worker(in_queue, out_queue, CONFIG):
     try:
@@ -255,10 +254,6 @@ def main():
     setup(CONFIG)
     check_path = CONFIG.checkpath
 
-    # initialize csv writer
-    csv_writer = CSVWriter(filename=CONFIG.csv_filename)
-    csv_writer.write(CSV_HEADER) # write header
-
     # initialize timed logger that print summary at the end of run
     timed_logger = TimedLogger(UPDATE_SEC_INTERVAL, UPDATE_MB_INTERVAL)
     print("==============================================")
@@ -276,16 +271,20 @@ def main():
     print("----------------------------------------------")
     if os.path.isfile(check_path):
         # manage single file check
-        is_success = check_file(check_path, CONFIG.error_detect)
-        if not is_success[0]:
-            check_outcome_detail = is_success[1]
-            log_check_outcome(check_outcome_detail, False)
+        check_result = check_file(check_path, CONFIG.error_detect)
+        if not check_result[0]:
+            check_outcome_detail = check_result[1]
+            log_check_outcome(check_outcome_detail, False, 1, 1)
             sys.exit(1)
         else:
             if not CONFIG.log_bad_files_only:
-                log_check_outcome(check_outcome_detail, True)
+                log_check_outcome(check_outcome_detail, True, 1, 1)
             print("File", check_path, "is OK")
             sys.exit(0)
+
+    # initialize csv writer only if it is not a single file
+    csv_writer = CSVWriter(filename=CONFIG.csv_filename)
+    csv_writer.write(CSV_HEADER) # write header            
 
     # manage folder (searches media files into)
 
@@ -293,7 +292,7 @@ def main():
     count = 0
     count_bad = 0
     total_file_size = 0
-    bad_files_info = [] # [("file_name", "error_message", "file_size[bytes]")]
+    result_info = [] # [("file_name", "error_message", "file_size[bytes]")]
 
     task_queue = Queue()
     out_queue = Queue()
@@ -314,6 +313,8 @@ def main():
         if not CONFIG.is_recurse:
             break  # we only check the root folder
 
+    print(f"Found {pre_count} files in {check_path}")
+
     for i in range(CONFIG.threads):
         p = Process(target=worker, args=(task_queue, out_queue, CONFIG))
         p.start()
@@ -324,20 +325,23 @@ def main():
 
             count += 1
 
-            is_success = out_queue.get(block=True, timeout=CONFIG.timeout)
-            file_size = is_success[1][3]
-            check_outcome_detail = is_success[1]
+            check_result = out_queue.get(block=True, timeout=CONFIG.timeout)
+            file_size = check_result[1][3]
+            check_outcome_detail = check_result[1]
 
             if file_size != 'NA':
                 total_file_size += file_size
-                if not CONFIG.log_bad_files_only:
-                    bad_files_info.append(check_outcome_detail)
-                    log_check_outcome(check_outcome_detail, True)
+              
 
-            if not is_success[0]:
+            if check_result[0]: # good files
+                if not CONFIG.log_bad_files_only:
+                    result_info.append(check_outcome_detail)
+                    log_check_outcome(check_outcome_detail, True, count, pre_count)
+
+            else:
                 count_bad += 1
-                bad_files_info.append(check_outcome_detail)
-                log_check_outcome(check_outcome_detail, False)
+                result_info.append(check_outcome_detail)
+                log_check_outcome(check_outcome_detail, False, count, pre_count)
                 # print "RATIO:", count_bad, "/", count
 
             # visualization logs and stats
@@ -353,13 +357,19 @@ def main():
     print("==============================================")
 
     if count_bad > 0 and CONFIG.enable_csv:
-        print("\nSave details for bad files in CSV format, file path:", CONFIG.csv_filename)
-        csv_writer.write(bad_files_info)
+        print("\nSaving CSV format, file path:", CONFIG.csv_filename)
+        csv_writer.write(result_info)
 
-    if count_bad == 0:
-        print("The files are OK :-)")
-    else:
-        print("Few files look damaged :-(")
+    print()
+    print("----------------------------------------------")
+    print("File Statistics")
+    print("----------------------------------------------")    
+    print(f"Total Files: \t{count}")
+
+    # if count_bad == 0:
+    print(f"Good Files: \t{count - count_bad}")
+    # else:
+    print(f"Bad Files: \t{count_bad}")
 
 
 if __name__ == "__main__":
