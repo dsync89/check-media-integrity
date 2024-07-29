@@ -1,5 +1,192 @@
 # check-media-integrity
 
+This is MODIFIED version of the original repo by `ftarlao/check-media-integrity`, focusing to capture ALL possible error when checking video file.
+
+## Mods
+- More reliable video checking using `ffmpeg -v error` instead of the default `strict` profile way. The error is decided by searching for the `error` word in the stderr (redirected to stdout). Using exit code or strict profile DOES NOT CAPTURE all the error case. 
+- Write GOOD and BAD files to CSV by default, provide `-b` arg to show bad files only
+- Use `logging` framework to print statements
+- Print file statistics after run
+- Code refactor, each checker is now in its own class
+- Many more formatting enhancement
+
+### CSV Output
+- CSV file is always written if folder is provided
+- Added a `check_status` to the first column. `O` means file OK, `X` means bad file.
+- Error message is formatted using `JSON` for JSON prettify of the error message is too long, e.g. when error is checked in FFMPEG.
+
+
+## Running as Container
+
+I've built a container image to run this and uploaded to DockerHub with the image name `dsync89/check-media-integrity:latest`. It is meant to run interactively, e.g. you have to login via console to that container and run the check command manually.
+
+```
+docker run -it dsync89/check-media-integrity:latest /bin/bash
+
+# check the test file
+python3 check_mi.py -m -r test_folder/files
+
+# check your media
+python3 check_mi.py -m -r /media/videos/Survivor/Season\ 28
+```
+
+### Docker Compose
+
+I run this as `docker-compose` stack on my unRAID server. To run it, create a `docker-compose.yml` file below.
+
+```
+services:
+  check-media-integrity:
+    image: dsync89/check-media-integrity:latest
+    volumes:
+      - <path/to/your/media/to/check>:/media/videos:ro # <-- replace the path 
+      - /mnt/user/appdata/check-media-integrity/logs:/app/logs
+   # command: ["./check_mi.py"]  # Override the default CMD if needed
+```
+
+## Output Example when running against the files in `test_folder`:
+
+```
+python3 check_mi.py -m -r test_folder/files
+```
+
+```
+2024-07-29 18:19:44 [INFO] ==============================================
+2024-07-29 18:19:44 [INFO] TASK STARTED ON 2024-07-29 18:19:44 UTC
+2024-07-29 18:19:44 [INFO] ==============================================
+2024-07-29 18:19:44 [INFO] Will log GOOD and BAD files
+2024-07-29 18:19:44 [INFO] ----------------------------------------------
+2024-07-29 18:19:44 [INFO] Files integrity check for: test_folder/files
+2024-07-29 18:19:44 [INFO] ----------------------------------------------
+2024-07-29 18:19:44 [INFO] Found 6 files in test_folder/files
+2024-07-29 18:19:44 [INFO] File 1/6: [X], file_path: test_folder/files/050807-124755t.jpg, detail: image file is truncated (0 bytes not processed), size[bytes]: 39000
+2024-07-29 18:19:44 [INFO] File 2/6: [O], file_path: test_folder/files/Albert_Memorial,_London_-_May_2008.jpg, detail: None, size[bytes]: 7111260
+2024-07-29 18:19:44 [INFO] File 3/6: [O], file_path: test_folder/files/fake_movie.mp4, detail: None, size[bytes]: 119
+2024-07-29 18:19:44 [INFO] File 4/6: [O], file_path: test_folder/files/deep/050807-124755.jpg, detail: None, size[bytes]: 41600
+2024-07-29 18:19:44 [INFO] File 5/6: [X], file_path: test_folder/files/deep/050807-124755b.jpg, detail: broken data stream when reading image file, size[bytes]: 41576
+2024-07-29 18:19:45 [INFO] File 6/6: [O], file_path: test_folder/files/deep/Bees3Wmv.mp4, detail: None, size[bytes]: 2903741
+2024-07-29 18:19:45 [INFO] ==============================================
+2024-07-29 18:19:45 [INFO] TASK COMPLETED ON 2024-07-29 18:19:45 UTC
+2024-07-29 18:19:45 [INFO] ==============================================
+2024-07-29 18:19:45 [INFO] Number of bad/processed files: 2 / 6, size of processed files: 9.7 MB
+2024-07-29 18:19:45 [INFO] Processing speed: 23.1 MB/s, or 14.3 files/s
+2024-07-29 18:19:45 [INFO] ==============================================
+2024-07-29 18:19:45 [INFO] Saving CSV format, file path: 2024-07-29_18-19-44.csv
+2024-07-29 18:19:45 [INFO] ----------------------------------------------
+2024-07-29 18:19:45 [INFO] File Statistics
+2024-07-29 18:19:45 [INFO] ----------------------------------------------
+2024-07-29 18:19:45 [INFO] Total Files:     6
+2024-07-29 18:19:45 [INFO] Good Files:      4
+2024-07-29 18:19:45 [INFO] Bad Files:       2
+2024-07-29 18:19:45 [INFO] ----------------------------------------------
+```
+
+CSV output
+```
+check_result	file_name	error_message	file_size[bytes]
+X	test_folder/files/050807-124755t.jpg	image file is truncated (0 bytes not processed)	39000
+O	test_folder/files/Albert_Memorial,_London_-_May_2008.jpg		7111260
+O	test_folder/files/fake_movie.mp4		119
+O	test_folder/files/deep/050807-124755.jpg		41600
+X	test_folder/files/deep/050807-124755b.jpg	broken data stream when reading image file	41576
+O	test_folder/files/deep/Bees3Wmv.mp4		2903741
+```
+
+## Output example when scanning corrupted video files that is otherwise not captured by the default method.
+
+```
+$ python3 check_mi.py -m -r /media/videos/Survivor/Season\ 28/test/ 
+2024-07-29 18:36:49 [INFO] ==============================================
+2024-07-29 18:36:49 [INFO] TASK STARTED ON 2024-07-29 18:36:49 UTC
+2024-07-29 18:36:49 [INFO] ==============================================
+2024-07-29 18:36:49 [INFO] Will log GOOD and BAD files
+2024-07-29 18:36:49 [INFO] ----------------------------------------------
+2024-07-29 18:36:49 [INFO] Files integrity check for: /media/videos/Survivor/Season 28/test/
+2024-07-29 18:36:49 [INFO] ----------------------------------------------
+2024-07-29 18:36:49 [INFO] Found 1 files in /media/videos/Survivor/Season 28/test/
+2024-07-29 18:36:59 [INFO] File 1/1: [X], file_path: /media/videos/Survivor/Season 28/test/Survivor.S28E05.We.Found.Our.Zombies.1080p.AMZN.WEB-DL.AAC2.0.H.264-AJP69.mkv, detail: {"0":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 158135 (0x269b7) invalid as first byte of an EBML number","1":"[h264 @ 0x5563415b13c0] error while decoding MB 112 56, bytestream -7","2":"[h264 @ 0x5563415ce040] co located POCs unavailable","3":"[h264 @ 0x5563415eacc0] co located POCs unavailable","4":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 800196606 (0x2fb207fe) invalid as first byte of an EBML number","5":"[h264 @ 0x55634140f080] error while decoding MB 12 66, bytestream -8","6":"[h264 @ 0x55634140abc0] co located POCs unavailable","7":"[h264 @ 0x5563414abc80] mmco: unref short failure","8":"[h264 @ 0x55634146c780] co located POCs unavailable","9":"[aac @ 0x5563413e26c0] decode_band_types: Input buffer exhausted before END element found","10":"Error while decoding stream #0:1: Invalid data found when processing input","11":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","12":"Error while decoding stream #0:1: Invalid data found when processing input","13":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","14":"Error while decoding stream #0:1: Invalid data found when processing input","15":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","16":"Error while decoding stream #0:1: Invalid data found when processing input","17":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 1600226258 (0x5f6183d2) invalid as first byte of an EBML number"}, size[bytes]: 2400354304
+2024-07-29 18:36:59 [INFO] ==============================================
+2024-07-29 18:36:59 [INFO] TASK COMPLETED ON 2024-07-29 18:36:59 UTC
+2024-07-29 18:36:59 [INFO] ==============================================
+2024-07-29 18:36:59 [INFO] Number of bad/processed files: 1 / 1, size of processed files: 2289.2 MB
+2024-07-29 18:36:59 [INFO] Processing speed: 220.9 MB/s, or 0.1 files/s
+2024-07-29 18:36:59 [INFO] ==============================================
+2024-07-29 18:36:59 [INFO] Saving CSV format, file path: 2024-07-29_18-36-49.csv
+2024-07-29 18:36:59 [INFO] ----------------------------------------------
+2024-07-29 18:36:59 [INFO] File Statistics
+2024-07-29 18:36:59 [INFO] ----------------------------------------------
+2024-07-29 18:36:59 [INFO] Total Files:     1
+2024-07-29 18:36:59 [INFO] Good Files:      0
+2024-07-29 18:36:59 [INFO] Bad Files:       1
+2024-07-29 18:36:59 [INFO] ----------------------------------------------
+```
+
+CSV Output
+```
+check_result	file_name	error_message	file_size[bytes]
+X	/media/videos/Survivor/Season 28/test/Survivor.S28E05.We.Found.Our.Zombies.1080p.AMZN.WEB-DL.AAC2.0.H.264-AJP69.mkv	{"0":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 158135 (0x269b7) invalid as first byte of an EBML number","1":"[h264 @ 0x5563415b13c0] error while decoding MB 112 56, bytestream -7","2":"[h264 @ 0x5563415ce040] co located POCs unavailable","3":"[h264 @ 0x5563415eacc0] co located POCs unavailable","4":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 800196606 (0x2fb207fe) invalid as first byte of an EBML number","5":"[h264 @ 0x55634140f080] error while decoding MB 12 66, bytestream -8","6":"[h264 @ 0x55634140abc0] co located POCs unavailable","7":"[h264 @ 0x5563414abc80] mmco: unref short failure","8":"[h264 @ 0x55634146c780] co located POCs unavailable","9":"[aac @ 0x5563413e26c0] decode_band_types: Input buffer exhausted before END element found","10":"Error while decoding stream #0:1: Invalid data found when processing input","11":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","12":"Error while decoding stream #0:1: Invalid data found when processing input","13":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","14":"Error while decoding stream #0:1: Invalid data found when processing input","15":"[aac @ 0x5563413e26c0] channel element 0.0 is not allocated","16":"Error while decoding stream #0:1: Invalid data found when processing input","17":"[matroska,webm @ 0x5563413d9e40] 0x00 at pos 1600226258 (0x5f6183d2) invalid as first byte of an EBML number"}	2400354304
+```
+
+## Motivation
+
+I first wrote a simple shell script to check for error in my bittorrent downloaded TV series in which some of the episodes files were corrupted. But I wanted a more flexible way to check it and possibly an existing framework, then found the original repo and modified it.
+
+Simple bash script I originally wrote in KISS fashion:
+
+```bash
+#!/bin/bash
+
+# Check if VIDEO_FOLDER is provided as an argument
+if [ -z "$1" ]; then
+  echo "Usage: $0 <video_folder>"
+  exit 1
+fi
+
+VIDEO_FOLDER="$1"
+
+BASENAME=$(date "+%Y-%m-%d_%H-%M-%S")
+echo "$BASENAME"
+
+FILENAME_OK="${BASENAME}-OK.log"
+FILENAME_KO="${BASENAME}-KO.log"
+
+echo "-------------------------" > "${FILENAME_KO}"
+echo "KO Videos" >> "${FILENAME_KO}"
+echo "-------------------------" >> "${FILENAME_KO}"
+
+echo "-------------------------" > "${FILENAME_OK}"
+echo "OK Videos" >> "${FILENAME_OK}"
+echo "-------------------------" >> "${FILENAME_OK}"
+
+# Function to check if a file is a valid media file
+check_media_file() {
+    local file="$1"
+    echo -n "$file..."
+    # ffmpeg -v error -i "$file" -f null - 2>&1 | grep -q "error"
+    ffmpeg -v error -i "$file" -f null -
+    if [ $? -ne 0 ]; then
+        echo "$file" >> "OK.log"
+        echo "OK"
+    else
+        echo "$file" >> "KO.log"
+        echo "KO"
+    fi
+}
+
+export -f check_media_file
+
+# Find all media files and check them in parallel using xargs
+find "$VIDEO_FOLDER" -type f \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" \) -print0 | xargs -0 -n 1 -P 1 -I {} bash -c 'check_media_file "{}"'
+```
+
+
+## TODO
+
+If I have time:
+- UI that logs each session run, like Speed-Tracker
+
+## FOLLOWING ARE FROM THE ORIGINAL REPO
+
 - Converted from Python2.7 to Python 3 (3.8) .. comes with bugfixes :-)
 
 ## Overview
