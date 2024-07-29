@@ -23,6 +23,7 @@ import csv
 import ffmpeg
 import argparse
 from subprocess import Popen, PIPE
+import subprocess
 
 LICENSE = "Copyright (C) 2018  Fabiano Tarlao.\nThis program comes with ABSOLUTELY NO WARRANTY.\n" \
           "This is free software, and you are welcome to redistribute it under GPL3 license conditions"
@@ -233,8 +234,32 @@ def is_target_file(filename):
     file_ext = get_extension(filename)
     return file_ext in MEDIA_EXTENSIONS
 
-
 def ffmpeg_check(filename, error_detect='default', threads=0):
+    ffmpeg_command = ['ffmpeg', '-v', 'error', '-i', filename, '-f', 'null', '-']
+
+    if error_detect != 'default':
+       if error_detect == 'strict':
+           custom = '+crccheck+bitstream+buffer+explode'
+       else:
+           custom = error_detect
+       ffmpeg_command.insert(3, '-err_detect')
+       ffmpeg_command.insert(4, custom)
+    
+    if threads > 0: 
+        ffmpeg_command.append('-threads')
+        ffmpeg_command.append(str(threads))
+    
+    try:
+        result = subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if 'error' in result.stdout.lower():
+            print(f"error: {result.stdout}")
+            result.stdout = result.stdout.replace('\n', ' ')
+            raise subprocess.CalledProcessError(result.returncode, ffmpeg_command, output=result.stdout, stderr=result.stderr)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e.output)
+
+
+def ffmpeg_check_ori(filename, error_detect='default', threads=0):
     if error_detect == 'default':
         stream = ffmpeg.input(filename)
     else:
