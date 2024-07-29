@@ -34,8 +34,12 @@ from pil_checker import PILChecker
 from csv_writer import CSVWriter
 from timed_logger import TimedLogger
 
-LICENSE = "Copyright (C) 2018  Fabiano Tarlao.\nThis program comes with ABSOLUTELY NO WARRANTY.\n" \
-          "This is free software, and you are welcome to redistribute it under GPL3 license conditions"
+LICENSE = "Copyright (C) 2018 Fabiano Tarlao.\n" \
+          "Copyright (C) 2024 D.Sync.\n" \
+          "This program comes with ABSOLUTELY NO WARRANTY.\n" \
+          "This is free software, and you are welcome to redistribute it under GPLv3 license conditions.\n" \
+          "You should have received a copy of the GNU General Public License along with this program.\n" \
+          "If not, see <https://www.gnu.org/licenses/>."
 
 UPDATE_SEC_INTERVAL = 5  # sec
 UPDATE_MB_INTERVAL = 500  # minimum MBytes of data between output log/messages
