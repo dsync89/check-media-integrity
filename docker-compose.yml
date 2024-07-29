@@ -1,0 +1,7 @@
+services:
+  check-media-integrity:
+    image: dsync89/check-media-integrity:latest
+    volumes:
+      - <path/to/your/media/to/check>:/media/videos:ro # <-- replace the path 
+      - /mnt/user/appdata/check-media-integrity/logs:/app/logs
+   # command: ["./check_mi.py"]  # Override the default CMD if needed
