@@ -105,7 +105,8 @@ def arg_parser():
     parser.add_argument('checkpath', metavar='P', type=str,
                         help='path to the file or folder')
     parser.add_argument('-c', '--csv', metavar='X', type=str,
-                        help='save bad files details on csv file %(metavar)s', dest='csv_filename')
+                        help='save bad files details on csv file %(metavar)s', dest='csv_filename',
+                        default=f"{time.strftime('%Y-%m-%d_%H-%M-%S')}.csv")
     parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
     parser.add_argument('-r', '--recurse', action='store_true', help='recurse subdirs',
                         dest='is_recurse')
