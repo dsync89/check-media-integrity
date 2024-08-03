@@ -8,9 +8,10 @@ COPY . /app
 
 COPY check_mi.py /usr/local/bin/
 RUN chmod +x /usr/local/bin/check_mi.py
+RUN chmod +x app.py
 
 RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 5566
 
-CMD ["sleep", "infinity"]
+CMD ["/app/app.py"]

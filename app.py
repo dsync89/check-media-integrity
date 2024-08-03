@@ -1,3 +1,5 @@
+#!/usr/local/bin/python3
+
 from flask import Flask, render_template, request, redirect, url_for, Response, stream_with_context, send_file
 import os
 import subprocess
