@@ -1,3 +1,5 @@
+#!/usr/local/bin/python3
+
 # Copyright (C) 2024
 
 # This program is free software: you can redistribute it and/or modify
@@ -12,9 +14,6 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 __author__ = "Fabiano Tarlao, D.Sync"
 __copyright__ = "Copyright 2018, Fabiano Tarlao, Copyright 2024, D.Sync"
 __credits__ = ["Fabiano Tarlao"]
@@ -35,6 +34,7 @@ import time
 # import checkers for different type of files
 from zero_checker import ZeroChecker
 from ffmpeg_checker import FFmpegChecker
+from mediainfo_checker import MediaInfoChecker
 from pdf_checker import PDFChecker
 from magick_checker import MagickChecker
 from pil_checker import PILChecker
@@ -229,6 +229,11 @@ def check_file(filename, error_detect='default', strict_level=0, zero_detect=0, 
                 MagickChecker.identify_check(filename)
 
         if file_ext in VIDEO_EXTENSIONS:
+            # first check video metadata since this is faster using mediainfo            
+            MediaInfoChecker.check(filename)
+            logger.debug("Video metadata check OK using mediainfo, next check video stream for corruption using ffmpeg...")
+
+            # then check for any video stream corruption using ffmpeg  
             FFmpegChecker.check(filename, error_detect=error_detect, threads=ffmpeg_threads)
 
     # except ffmpeg.Error as e:

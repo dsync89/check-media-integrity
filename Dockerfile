@@ -6,6 +6,9 @@ WORKDIR /app
 
 COPY . /app
 
-RUN pip install -r requirements.txt
+COPY /app/check_mi.py /usr/local/bin/
+RUN chmod +x /usr/local/bin/check_mi.py
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 CMD ["sleep", "infinity"]
