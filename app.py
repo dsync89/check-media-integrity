@@ -1,12 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, Response, stream_with_context
+from flask import Flask, render_template, request, redirect, url_for, Response, stream_with_context, send_file
 import os
 import subprocess
-import time
 
 app = Flask(__name__)
 
-# Define the path to list directories from
+# Define the paths
 BASE_PATH = '/media/videos'
+CSV_PATH = '/app/logs'
 
 def list_folders(path):
     folders = []
@@ -20,14 +20,18 @@ def list_folders(path):
             })
     return folders
 
+def list_csv_files(path):
+    return [entry.name for entry in os.scandir(path) if entry.is_file() and entry.name.endswith('.csv')]
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     folders = list_folders(BASE_PATH)
+    csv_files = list_csv_files(CSV_PATH)
     if request.method == 'POST':
         selected_folders = request.form.getlist('folders')
         return redirect(url_for('stream_output', folders=selected_folders))
-    
-    return render_template('index.html', folders=folders, command_output="")
+
+    return render_template('index.html', folders=folders, csv_files=csv_files, command_output="")
 
 @app.route('/stream')
 def stream_output():
@@ -35,18 +39,20 @@ def stream_output():
     command = ['/app/check_mi.py', '-m', '-r'] + selected_folders
 
     def generate():
-        # Execute the command
         with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
             for line in process.stdout:
                 yield f"data: {line}\n\n"
-            # Send error messages if any
             for line in process.stderr:
                 yield f"data: {line}\n\n"
-                
-        # Wait for the command to finish
         process.wait()
     
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+@app.route('/csv')
+def csv_viewer():
+    file_name = request.args.get('file')
+    file_path = os.path.join(CSV_PATH, file_name)
+    return send_file(file_path)
 
 if __name__ == '__main__':
     app.run(debug=True)
