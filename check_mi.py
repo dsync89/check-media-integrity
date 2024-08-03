@@ -298,7 +298,7 @@ def main():
             sys.exit(0)
 
     # initialize csv writer only if it is not a single file
-    csv_writer = CSVWriter(filename=CONFIG.csv_filename)
+    csv_writer = CSVWriter(filename=os.path.join('logs', CONFIG.csv_filename))
     csv_writer.write(CSV_HEADER) # write header            
 
     # manage folder (searches media files into)
@@ -370,9 +370,8 @@ def main():
     timed_logger.print_log(count, count_bad, total_file_size, force=True)
     logger.info("==============================================")
 
-    if count_bad > 0 and CONFIG.enable_csv:
-        logger.info(f"Saving CSV format, file path: {CONFIG.csv_filename}")
-        csv_writer.write(result_info)
+    logger.info(f"Saving CSV format, file path: {CONFIG.csv_filename}")
+    csv_writer.write(result_info)
 
     logger.info("----------------------------------------------")
     logger.info("File Statistics")
