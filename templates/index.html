@@ -78,18 +78,11 @@
             height: calc(100vh - 80px); /* Adjust height to fit within the view */
             overflow-y: auto;
         }
-        .csv-table {
-            width: 100%;
-            border-collapse: collapse;
+        .csv-actions {
+            margin-bottom: 10px;
         }
-        .csv-table th,
-        .csv-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        .csv-table th {
-            background-color: #f4f4f4;
+        .csv-actions button {
+            margin-right: 10px;
         }
     </style>
 </head>
@@ -133,6 +126,11 @@
             </div>
             <div class="csv-viewer">
                 <h1>CSV Files</h1>
+                <div class="csv-actions">
+                    <button id="showOOnly">Show O only</button>
+                    <button id="showXOnly">Show X only</button>
+                    <button id="showAll">Show All</button>
+                </div>
                 <ul id="csvList">
                     {% for csv_file in csv_files %}
                         <li><a href="#" class="csv-file" data-file="{{ csv_file }}">{{ csv_file }}</a></li>
@@ -214,28 +212,57 @@
                 fetch(`/csv?file=${this.dataset.file}`)
                     .then(response => response.text())
                     .then(data => {
-                        const rows = data.split('\n');
+                        const lines = data.split('\n').filter(line => line.trim() !== '');
                         const table = document.createElement('table');
-                        table.classList.add('csv-table');
-
-                        rows.forEach((row, index) => {
-                            const cells = row.split('\t');
-                            const tr = document.createElement('tr');
-
-                            cells.forEach(cell => {
-                                const td = document.createElement(index === 0 ? 'th' : 'td');
-                                td.textContent = cell;
-                                tr.appendChild(td);
+                        table.style.width = '100%';
+                        table.style.borderCollapse = 'collapse';
+                        
+                        const thead = document.createElement('thead');
+                        const tbody = document.createElement('tbody');
+                        
+                        lines.forEach((line, index) => {
+                            const row = document.createElement('tr');
+                            const columns = line.split('\t');
+                            columns.forEach(column => {
+                                const cell = document.createElement(index === 0 ? 'th' : 'td');
+                                cell.textContent = column;
+                                cell.style.border = '1px solid #ddd';
+                                cell.style.padding = '8px';
+                                row.appendChild(cell);
                             });
-
-                            table.appendChild(tr);
+                            if (index === 0) {
+                                thead.appendChild(row);
+                            } else {
+                                tbody.appendChild(row);
+                            }
                         });
-
+                        table.appendChild(thead);
+                        table.appendChild(tbody);
+                        
                         document.getElementById('csvContent').innerHTML = '';
                         document.getElementById('csvContent').appendChild(table);
                     });
             });
         });
+
+        // Filtering functionality
+        document.getElementById('showOOnly').addEventListener('click', () => filterRows('O'));
+        document.getElementById('showXOnly').addEventListener('click', () => filterRows('X'));
+        document.getElementById('showAll').addEventListener('click', () => filterRows());
+
+        function filterRows(value) {
+            const rows = document.querySelectorAll('#csvContent tbody tr');
+            rows.forEach(row => {
+                const firstCell = row.querySelector('td:first-child');
+                if (firstCell) {
+                    if (value === undefined || firstCell.textContent === value) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
     </script>
 </body>
 </html>
