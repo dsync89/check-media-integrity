@@ -78,6 +78,19 @@
             height: calc(100vh - 80px); /* Adjust height to fit within the view */
             overflow-y: auto;
         }
+        .csv-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .csv-table th,
+        .csv-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .csv-table th {
+            background-color: #f4f4f4;
+        }
     </style>
 </head>
 <body>
@@ -194,14 +207,32 @@
             startStream();
         });
 
-        // Fetch and display CSV content
+        // Fetch and display TSV content
         document.querySelectorAll('.csv-file').forEach(link => {
             link.addEventListener('click', function(event) {
                 event.preventDefault();
                 fetch(`/csv?file=${this.dataset.file}`)
                     .then(response => response.text())
                     .then(data => {
-                        document.getElementById('csvContent').innerText = data;
+                        const rows = data.split('\n');
+                        const table = document.createElement('table');
+                        table.classList.add('csv-table');
+
+                        rows.forEach((row, index) => {
+                            const cells = row.split('\t');
+                            const tr = document.createElement('tr');
+
+                            cells.forEach(cell => {
+                                const td = document.createElement(index === 0 ? 'th' : 'td');
+                                td.textContent = cell;
+                                tr.appendChild(td);
+                            });
+
+                            table.appendChild(tr);
+                        });
+
+                        document.getElementById('csvContent').innerHTML = '';
+                        document.getElementById('csvContent').appendChild(table);
                     });
             });
         });
