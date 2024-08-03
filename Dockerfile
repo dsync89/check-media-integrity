@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY . /app
 
-COPY /app/check_mi.py /usr/local/bin/
+COPY check_mi.py /usr/local/bin/
 RUN chmod +x /usr/local/bin/check_mi.py
 
 RUN pip install --no-cache-dir -r requirements.txt
