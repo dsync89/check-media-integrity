@@ -5,11 +5,13 @@ This is MODIFIED version of the original repo by `ftarlao/check-media-integrity`
 Also featured in my website: https://dsync89.com
 
 ## Mods
+- Check for video metadata using `mediainfo` before checking using `ffmpeg`. Metadata check is faster, if it failed, then do `ffmpeg`.
 - More reliable video checking using `ffmpeg -v error` instead of the default `strict` profile way. The error is decided by searching for the `error` word in the stderr (redirected to stdout). Using exit code or strict profile DOES NOT CAPTURE all the error case. 
 - Write GOOD and BAD files to CSV by default, provide `-b` arg to show bad files only
 - Use `logging` framework to print statements
 - Print file statistics after run
 - Code refactor, each checker is now in its own class
+- Web UI
 - Many more formatting enhancement
 
 ### CSV Output
@@ -18,13 +20,22 @@ Also featured in my website: https://dsync89.com
 - Added a `check_status` to the first column. `O` means file OK, `X` means bad file.
 - Error message is formatted using `JSON` for JSON prettify of the error message is too long, e.g. when error is checked in FFMPEG.
 
+### Web UI
+- Running on port `5566`
+- Support Folder Selector, CSV Viewer, and Session tabs (TODO)
+
+![alt text](images/image.png)
+
+![alt text](images/image-1.png)
+
+Web UI is started by default when you run the container using `python3 app.py`.
 
 ## Running as Container
 
 I've built a container image to run this and uploaded to DockerHub with the image name `dsync89/check-media-integrity:latest`. It is meant to run interactively, e.g. you have to login via console to that container and run the check command manually.
 
 ```
-docker run -it dsync89/check-media-integrity:latest /bin/bash
+docker run -it -p 5566:5566 dsync89/check-media-integrity:latest /bin/bash
 
 # check the test file
 python3 check_mi.py -m -r test_folder/files
@@ -45,6 +56,8 @@ services:
       - <path/to/your/media/to/check>:/media/videos:ro # <-- replace the path 
       - /mnt/user/appdata/check-media-integrity/logs:/app/logs
    # command: ["./check_mi.py"]  # Override the default CMD if needed
+    ports:
+      - 5566:5566
 ```
 
 ## Output Example when running against the files in `test_folder`:
