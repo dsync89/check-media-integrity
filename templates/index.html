@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folder Selector</title>
+    <style>
+        body {
+            display: flex;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+        .folder-selector {
+            flex: 1;
+            padding: 20px;
+            border-right: 2px solid #ccc;
+            box-sizing: border-box;
+            overflow-y: auto; /* Vertical scrollbar */
+        }
+        .console-log {
+            flex: 2;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .folder {
+            margin-bottom: 10px;
+        }
+        .subfolder {
+            display: none;
+            margin-left: 20px;
+        }
+        .folder + .subfolder {
+            display: block;
+        }
+        .toggle-btn {
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .log-output {
+            white-space: pre-wrap;
+            font-family: monospace;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            height: calc(100vh - 40px); /* Adjust height to fit within the view */
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="folder-selector">
+            <h1>Select Folders</h1>
+            <form method="post" id="folderForm">
+                {% for folder in folders %}
+                    <div class="folder">
+                        <input type="checkbox" name="folders" value="{{ folder.path }}">
+                        {{ folder.name }}
+                        {% if folder.subfolders %}
+                            <span class="toggle-btn">[+]</span>
+                            <div class="subfolder">
+                                {% for subfolder in folder.subfolders %}
+                                    <input type="checkbox" name="folders" value="{{ subfolder.path }}">
+                                    {{ subfolder.name }}
+                                    {% if subfolder.subfolders %}
+                                        <span class="toggle-btn">[+]</span>
+                                        <div class="subfolder">
+                                            {% for subsubfolder in subfolder.subfolders %}
+                                                <input type="checkbox" name="folders" value="{{ subsubfolder.path }}">
+                                                {{ subsubfolder.name }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+        <div class="console-log">
+            <h2>Command Output</h2>
+            <div class="log-output" id="logOutput">
+                <!-- Command output will be streamed here -->
+            </div>
+        </div>
+    </div>
+    <script>
+        document.querySelectorAll('.toggle-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const subfolder = button.nextElementSibling;
+                if (subfolder.style.display === 'none') {
+                    subfolder.style.display = 'block';
+                    button.textContent = '[-]';
+                } else {
+                    subfolder.style.display = 'none';
+                    button.textContent = '[+]';
+                }
+            });
+        });
+
+        // Function to establish a connection to the server for streaming updates
+        function startStream() {
+            const queryString = new URLSearchParams(new FormData(document.getElementById('folderForm'))).toString();
+            const source = new EventSource(`/stream?${queryString}`);
+
+            source.onmessage = function(event) {
+                document.getElementById('logOutput').innerHTML += event.data + '<br>';
+            };
+
+            source.onerror = function(event) {
+                console.error('Error occurred:', event);
+                source.close();
+            };
+        }
+
+        // Start the stream when the form is submitted
+        document.getElementById('folderForm').addEventListener('submit', function(e) {
+            e.preventDefault();  // Prevent form submission
+            startStream();
+        });
+    </script>
+</body>
+</html>
